@@ -36,9 +36,23 @@ def stitch(images):
         np.set_printoptions(precision=3, suppress=True)
         print("Found homography:\n", H)
 
+        # find size of the stitched image
+        corners = np.array([
+            [0, 0, 1],
+            [stitched.shape[1], 0, 1],
+            [0, stitched.shape[0], 1],
+            [stitched.shape[1], stitched.shape[0], 1]
+        ], dtype=np.float64)
+        for i in range(corners.shape[0]):
+            corners[i] = np.dot(H, corners[i])
+            corners[i] /= corners[i, 2]
+
+        maxx = int(max(corners[0, 0], corners[1, 0], corners[2, 0], corners[3, 0], img.shape[1]))
+        maxy = int(max(corners[0, 1], corners[1, 1], corners[2, 1], corners[3, 1], img.shape[0]))
+
         # apply a perspective warp to stitch the images together
-        stitched = cv2.warpPerspective(stitched, H, (stitched.shape[1] + img.shape[1], stitched.shape[0] + img.shape[0]))
-        cv2.imwrite("t.jpg", stitched)
+        stitched = cv2.warpPerspective(stitched, H, (maxx, maxy))
+        cv2.imwrite("warped.jpg", stitched)
         stitched[:img.shape[0], :img.shape[1]] = img
         print("Stitched image, shape is", img.shape)
 
