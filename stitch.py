@@ -1,38 +1,51 @@
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
 
-def extract_features(img):
-    gray = np.float32(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-    corners = cv2.goodFeaturesToTrack(gray, 1000, 0.01, 15)
-    return [cv2.KeyPoint(c[0, 0], c[0, 1], 2) for c in corners]
+def find_homography(i1, i2):
+    feature_detector = cv2.ORB_create()
+    gray = cv2.cvtColor(i1, cv2.COLOR_BGR2GRAY)
+    kp1, d1 = feature_detector.detectAndCompute(gray, None)
+    gray = cv2.cvtColor(i2, cv2.COLOR_BGR2GRAY)
+    kp2, d2 = feature_detector.detectAndCompute(gray, None)
+
+    feature_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matches = feature_matcher.match(d1, d2)
+    print("Found %i matches" % len(matches))
+    good = sorted(matches, key=lambda x: x.distance)[:int(len(matches) * 0.2)]
+
+    vis = i1.copy()
+    vis = cv2.drawMatches(i1, kp1, i2, kp2, good, vis)
+    cv2.imwrite("matches.jpg", vis)
+
+    if len(good) > 4:
+        pts1 = np.float32([kp1[m.queryIdx].pt for m in matches])
+        pts2 = np.float32([kp2[m.trainIdx].pt for m in matches])
+        H, s = cv2.findHomography(pts1, pts2, cv2.RANSAC, 4)
+        return H
+
+    return None
 
 
-def extract_features1(img):
-    features = []
-    thresh = 0.01 * img.max()
-    for i in range(img.shape[0]):
-        for j in range(img.shape[1]):
-            if img[i, j] > thresh:
-                features.append(cv2.KeyPoint(j, i, 2))
-    return features
+def stitch(images):
+    print("Stitching images...")
+    stitched = images[0]
+    for img in images[1:]:
+        H = find_homography(stitched, img)
+        np.set_printoptions(precision=3, suppress=True)
+        print("Found homography:\n", H)
 
+        # apply a perspective warp to stitch the images together
+        stitched = cv2.warpPerspective(stitched, H, (stitched.shape[1] + img.shape[1], stitched.shape[0] + img.shape[0]))
+        cv2.imwrite("t.jpg", stitched)
+        stitched[:img.shape[0], :img.shape[1]] = img
+        print("Stitched image, shape is", img.shape)
 
-def show_features(img, features):
-    vis = np.zeros_like(img)
-    cv2.drawKeypoints(img, features, vis)
-    plt.imshow(vis)
+    return stitched
 
-
-def run(img1, img2):
-    f1 = extract_features(img1)
-    f2 = extract_features(img2)
-    show_features(img1, f1)
-    plt.show()
 
 if __name__ == '__main__':
-    img1 = cv2.imread(sys.argv[1])
-    img2 = cv2.imread(sys.argv[2])
-    run(img1, img2)
+    images = [cv2.imread(f) for f in sys.argv[1:]]
+    img = stitch(images)
+    cv2.imwrite("stiched.jpg", img)
