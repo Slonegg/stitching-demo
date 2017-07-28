@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 import sys
 
 
@@ -90,3 +91,5 @@ if __name__ == '__main__':
     images = [cv2.imread(f) for f in sys.argv[1:]]
     img = stitch(images)
     cv2.imwrite("stiched.jpg", img)
+    plt.imshow(img)
+    plt.show()
