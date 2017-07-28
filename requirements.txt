@@ -1,6 +1,4 @@
 matplotlib==2.0.2
 numpy==1.13.1
 opencv-python==3.2.0.7
-pyopencl==2017.2
 scipy==0.19.1
-scikit-cuda==0.5.1
